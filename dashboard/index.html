@@ -1,0 +1,1085 @@
+﻿<!DOCTYPE html>
+<html lang="no">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SmartEnergy IoT Platform - Real-time Energy Management System</title>
+    
+    <!-- Font Awesome for ikoner -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- MQTT.js og Chart.js -->
+    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        :root {
+            --primary: #6366f1;
+            --primary-dark: #4f46e5;
+            --success: #10b981;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --dark: #1e293b;
+            --darker: #0f172a;
+            --light: #f8fafc;
+            --text: #334155;
+            --text-light: #64748b;
+            --border: #e2e8f0;
+            --shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+            --shadow-lg: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+        }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            position: relative;
+            overflow-x: hidden;
+        }
+        
+        /* Animated background */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: 
+                radial-gradient(circle at 20% 80%, rgba(99, 102, 241, 0.3) 0%, transparent 50%),
+                radial-gradient(circle at 80% 20%, rgba(139, 92, 246, 0.3) 0%, transparent 50%),
+                radial-gradient(circle at 40% 40%, rgba(236, 72, 153, 0.2) 0%, transparent 50%);
+            animation: float 20s ease-in-out infinite;
+            pointer-events: none;
+        }
+        
+        @keyframes float {
+            0%, 100% { transform: translate(0, 0) rotate(0deg); }
+            33% { transform: translate(-20px, -20px) rotate(1deg); }
+            66% { transform: translate(20px, -10px) rotate(-1deg); }
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+            position: relative;
+            z-index: 1;
+        }
+        
+        /* Header */
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: var(--shadow-lg);
+            border: 1px solid rgba(255, 255, 255, 0.8);
+        }
+        
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+        
+        .header h1 {
+            font-size: 2rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 5px;
+        }
+        
+        .header-subtitle {
+            color: var(--text-light);
+            font-size: 1rem;
+        }
+        
+        .connection-status {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 12px 20px;
+            background: white;
+            border-radius: 50px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            position: relative;
+        }
+        
+        .status-indicator.online {
+            background: var(--success);
+            animation: pulse-green 2s infinite;
+        }
+        
+        .status-indicator.offline {
+            background: var(--danger);
+            animation: pulse-red 2s infinite;
+        }
+        
+        @keyframes pulse-green {
+            0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+        }
+        
+        @keyframes pulse-red {
+            0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+        }
+        
+        /* Dashboard Grid */
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 25px;
+            margin-bottom: 30px;
+        }
+        
+        .card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 25px;
+            box-shadow: var(--shadow);
+            border: 1px solid rgba(255, 255, 255, 0.8);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: var(--shadow-lg);
+        }
+        
+        .card:hover::before {
+            opacity: 1;
+        }
+        
+        .card-header {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .card-icon {
+            width: 50px;
+            height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 12px;
+            font-size: 1.5rem;
+        }
+        
+        .card-title {
+            flex: 1;
+        }
+        
+        .card-title h3 {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--dark);
+            margin-bottom: 3px;
+        }
+        
+        .card-title span {
+            font-size: 0.85rem;
+            color: var(--text-light);
+        }
+        
+        /* Temperature Card */
+        .temp-card .card-icon {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+        }
+        
+        .temp-display {
+            font-size: 3.5rem;
+            font-weight: 800;
+            text-align: center;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin: 20px 0;
+            line-height: 1;
+        }
+        
+        .temp-stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        .stat-item {
+            text-align: center;
+            padding: 12px;
+            background: #f8fafc;
+            border-radius: 10px;
+        }
+        
+        .stat-value {
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: var(--dark);
+        }
+        
+        .stat-label {
+            font-size: 0.75rem;
+            color: var(--text-light);
+            text-transform: uppercase;
+            margin-top: 3px;
+        }
+        
+        /* Heater Card */
+        .heater-card .card-icon {
+            background: linear-gradient(135deg, #f59e0b, #ef4444);
+            color: white;
+        }
+        
+        .heater-status {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 120px;
+            border-radius: 15px;
+            font-size: 1.5rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.5s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .heater-status.on {
+            background: linear-gradient(135deg, #f59e0b, #ef4444);
+            color: white;
+            animation: glow 2s ease-in-out infinite;
+        }
+        
+        .heater-status.off {
+            background: #f1f5f9;
+            color: #94a3b8;
+        }
+        
+        @keyframes glow {
+            0%, 100% { box-shadow: 0 0 20px rgba(239, 68, 68, 0.3); }
+            50% { box-shadow: 0 0 40px rgba(239, 68, 68, 0.6); }
+        }
+        
+        .heater-status i {
+            font-size: 2.5rem;
+            margin-right: 15px;
+        }
+        
+        /* System Card */
+        .system-card .card-icon {
+            background: linear-gradient(135deg, #10b981, #34d399);
+            color: white;
+        }
+        
+        .system-metrics {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+        
+        .metric-box {
+            padding: 15px;
+            background: #f8fafc;
+            border-radius: 12px;
+            border-left: 4px solid;
+        }
+        
+        .metric-box.uptime {
+            border-color: var(--success);
+        }
+        
+        .metric-box.messages {
+            border-color: var(--primary);
+        }
+        
+        .metric-box.heartbeat {
+            border-color: var(--warning);
+        }
+        
+        .metric-box.latency {
+            border-color: var(--danger);
+        }
+        
+        .metric-label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.85rem;
+            color: var(--text-light);
+            margin-bottom: 5px;
+        }
+        
+        .metric-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--dark);
+        }
+        
+        /* Control Panel */
+        .control-panel {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 25px;
+            box-shadow: var(--shadow);
+            margin-bottom: 30px;
+        }
+        
+        .control-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .control-header i {
+            font-size: 1.5rem;
+            color: var(--primary);
+        }
+        
+        .control-header h3 {
+            font-size: 1.2rem;
+            color: var(--dark);
+        }
+        
+        .control-buttons {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+        }
+        
+        .control-btn {
+            padding: 15px;
+            border: none;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            color: white;
+        }
+        
+        .control-btn:hover {
+            transform: scale(1.05);
+        }
+        
+        .btn-cold {
+            background: linear-gradient(135deg, #3b82f6, #06b6d4);
+        }
+        
+        .btn-normal {
+            background: linear-gradient(135deg, #10b981, #34d399);
+        }
+        
+        .btn-hot {
+            background: linear-gradient(135deg, #f59e0b, #ef4444);
+        }
+        
+        .btn-random {
+            background: linear-gradient(135deg, #8b5cf6, #ec4899);
+        }
+        
+        .custom-temp {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        .custom-temp input {
+            flex: 1;
+            padding: 12px 15px;
+            border: 2px solid var(--border);
+            border-radius: 10px;
+            font-size: 1rem;
+            transition: border-color 0.3s;
+        }
+        
+        .custom-temp input:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+        
+        .custom-temp button {
+            padding: 12px 25px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.3s;
+        }
+        
+        .custom-temp button:hover {
+            transform: scale(1.05);
+        }
+        
+        /* Chart Container */
+        .chart-card {
+            grid-column: span 2;
+        }
+        
+        .chart-container {
+            position: relative;
+            height: 350px;
+            margin-top: 20px;
+        }
+        
+        /* Notification Toast */
+        .toast {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            padding: 15px 20px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: var(--shadow-lg);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            transform: translateX(400px);
+            transition: transform 0.3s ease;
+            z-index: 1000;
+        }
+        
+        .toast.show {
+            transform: translateX(0);
+        }
+        
+        .toast-icon {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .toast-success .toast-icon {
+            background: #d1fae5;
+            color: var(--success);
+        }
+        
+        .toast-warning .toast-icon {
+            background: #fed7aa;
+            color: var(--warning);
+        }
+        
+        .toast-content {
+            flex: 1;
+        }
+        
+        .toast-title {
+            font-weight: 600;
+            color: var(--dark);
+            margin-bottom: 2px;
+        }
+        
+        .toast-message {
+            font-size: 0.9rem;
+            color: var(--text-light);
+        }
+        
+        /* Footer */
+        .footer {
+            text-align: center;
+            padding: 30px;
+            color: white;
+        }
+        
+        .footer a {
+            color: white;
+            text-decoration: none;
+            font-weight: 600;
+        }
+        
+        .footer a:hover {
+            text-decoration: underline;
+        }
+        
+        /* Responsive */
+        @media (max-width: 768px) {
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .chart-card {
+                grid-column: span 1;
+            }
+            
+            .header h1 {
+                font-size: 1.5rem;
+            }
+            
+            .temp-display {
+                font-size: 2.5rem;
+            }
+        }
+        
+        /* Loading Animation */
+        .loading-spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(0,0,0,0.1);
+            border-top: 3px solid var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <div>
+                    <h1>🔋 SmartEnergy IoT Platform</h1>
+                    <p class="header-subtitle">Edge Computing • Real-time Energy Management • MQTT • Docker</p>
+                </div>
+                <div class="connection-status">
+                    <span class="status-indicator offline" id="connectionIndicator"></span>
+                    <span id="connectionText">Kobler til...</span>
+                </div>
+            </div>
+        </header>
+        
+        <!-- Control Panel -->
+        <div class="control-panel">
+            <div class="control-header">
+                <i class="fas fa-gamepad"></i>
+                <h3>Simuler Temperaturer</h3>
+            </div>
+            <div class="control-buttons">
+                <button class="control-btn btn-cold" onclick="sendTemp(18.5)">
+                    <i class="fas fa-snowflake"></i>
+                    Kaldt (18.5°C)
+                </button>
+                <button class="control-btn btn-normal" onclick="sendTemp(21.5)">
+                    <i class="fas fa-cloud"></i>
+                    Normal (21.5°C)
+                </button>
+                <button class="control-btn btn-hot" onclick="sendTemp(24.0)">
+                    <i class="fas fa-fire"></i>
+                    Varmt (24.0°C)
+                </button>
+                <button class="control-btn btn-random" onclick="sendRandomSequence()">
+                    <i class="fas fa-dice"></i>
+                    Tilfeldig sekvens
+                </button>
+            </div>
+            <div class="custom-temp">
+                <input type="number" id="customTemp" placeholder="Skriv temperatur..." step="0.1" min="10" max="35">
+                <button onclick="sendCustomTemp()">
+                    <i class="fas fa-paper-plane"></i> Send
+                </button>
+            </div>
+        </div>
+        
+        <!-- Dashboard Grid -->
+        <div class="dashboard-grid">
+            <!-- Temperature Card -->
+            <div class="card temp-card">
+                <div class="card-header">
+                    <div class="card-icon">
+                        <i class="fas fa-thermometer-half"></i>
+                    </div>
+                    <div class="card-title">
+                        <h3>Stue Temperatur</h3>
+                        <span>home/stue/temp</span>
+                    </div>
+                </div>
+                <div class="temp-display" id="currentTemp">
+                    --.-°C
+                </div>
+                <div class="temp-stats">
+                    <div class="stat-item">
+                        <div class="stat-value" id="minTemp">--.-</div>
+                        <div class="stat-label">Min</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="avgTemp">--.-</div>
+                        <div class="stat-label">Snitt</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="maxTemp">--.-</div>
+                        <div class="stat-label">Max</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Heater Card -->
+            <div class="card heater-card">
+                <div class="card-header">
+                    <div class="card-icon">
+                        <i class="fas fa-fire"></i>
+                    </div>
+                    <div class="card-title">
+                        <h3>Varmeovn Status</h3>
+                        <span>home/stue/heater/cmd</span>
+                    </div>
+                </div>
+                <div class="heater-status off" id="heaterStatus">
+                    <i class="fas fa-power-off"></i>
+                    <span>Venter på data...</span>
+                </div>
+                <div style="margin-top: 20px; padding: 15px; background: #f8fafc; border-radius: 10px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="color: var(--text-light); font-size: 0.9rem;">
+                            <i class="fas fa-info-circle"></i> Automatisk kontroll
+                        </span>
+                        <span style="font-weight: 600; color: var(--dark);">
+                            Terskel: 21°C
+                        </span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- System Status Card -->
+            <div class="card system-card">
+                <div class="card-header">
+                    <div class="card-icon">
+                        <i class="fas fa-microchip"></i>
+                    </div>
+                    <div class="card-title">
+                        <h3>System Status</h3>
+                        <span>Edge Worker Metrics</span>
+                    </div>
+                </div>
+                <div class="system-metrics">
+                    <div class="metric-box uptime">
+                        <div class="metric-label">
+                            <i class="fas fa-clock"></i>
+                            Oppetid
+                        </div>
+                        <div class="metric-value" id="uptime">00:00</div>
+                    </div>
+                    <div class="metric-box messages">
+                        <div class="metric-label">
+                            <i class="fas fa-envelope"></i>
+                            Meldinger
+                        </div>
+                        <div class="metric-value" id="messages">0</div>
+                    </div>
+                    <div class="metric-box heartbeat">
+                        <div class="metric-label">
+                            <i class="fas fa-heartbeat"></i>
+                            Heartbeat
+                        </div>
+                        <div class="metric-value" id="lastHeartbeat">--:--</div>
+                    </div>
+                    <div class="metric-box latency">
+                        <div class="metric-label">
+                            <i class="fas fa-tachometer-alt"></i>
+                            Responstid
+                        </div>
+                        <div class="metric-value" id="latency">-- ms</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Chart Card -->
+            <div class="card chart-card">
+                <div class="card-header">
+                    <div class="card-icon" style="background: linear-gradient(135deg, #3b82f6, #8b5cf6);">
+                        <i class="fas fa-chart-line"></i>
+                    </div>
+                    <div class="card-title">
+                        <h3>Temperatur Historie</h3>
+                        <span>Real-time data visualisering</span>
+                    </div>
+                </div>
+                <div class="chart-container">
+                    <canvas id="tempChart"></canvas>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Footer -->
+        <footer class="footer">
+            <p>
+                Utviklet av <strong>Hiwa Abdolahi</strong> • 
+                <a href="https://github.com/HiwaAbdolahi" target="_blank">
+                    <i class="fab fa-github"></i> GitHub
+                </a> • 
+                <a href="https://hiwa.azurewebsites.net" target="_blank">
+                    <i class="fas fa-globe"></i> Portfolio
+                </a>
+            </p>
+        </footer>
+    </div>
+    
+    <!-- Toast Notification -->
+    <div class="toast" id="toast">
+        <div class="toast-icon">
+            <i class="fas fa-check"></i>
+        </div>
+        <div class="toast-content">
+            <div class="toast-title" id="toastTitle">Melding</div>
+            <div class="toast-message" id="toastMessage">...</div>
+        </div>
+    </div>
+    
+    <script>
+        // --- MQTT WebSocket URL via nginx-proxy (samme origin som 8080) ---
+        const url = (location.protocol === 'https:' ? 'wss' : 'ws') + '://' + location.host + '/mqtt';
+        const WS_HOST = location.hostname;   // samme host som dashboardet
+        const WS_PORT = 9001;                // eksponert i docker-compose
+        const WS_PATH = '/';                  // <-- trailing slash for iOS/Safari; Mosquitto websockets lytter på "/"
+
+        const url = `${WS_PROTOCOL}://${WS_HOST}:${WS_PORT}${WS_PATH}`;
+
+        const options = {
+            clean: true,
+            connectTimeout: 5000,
+            reconnectPeriod: 2000,
+            clientId: 'dashboard_' + Math.random().toString(16).slice(2)
+        };
+
+        // Topics
+        const topics = {
+            temp: 'home/stue/temp',
+            heater: 'home/stue/heater/cmd',
+            heartbeat: 'home/demo/heartbeat'
+        };
+    
+        
+        // State
+        let client = null;
+        let tempHistory = [];
+        let chart = null;
+        let startTime = Date.now();
+        let messageCount = 0;
+        let minTemp = null;
+        let maxTemp = null;
+        // Latency-måling basert på heartbeat
+        let latencySamples = [];
+        const MAX_LAT_SAMPLES = 5;
+        
+        // Initialize Chart
+        const ctx = document.getElementById('tempChart').getContext('2d');
+        chart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [
+                    {
+                        label: 'Temperatur',
+                        data: [],
+                        borderColor: '#6366f1',
+                        backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                        borderWidth: 3,
+                        tension: 0.4,
+                        fill: true,
+                        pointRadius: 4,
+                        pointHoverRadius: 6
+                    },
+                    {
+                        label: 'Terskel (21°C)',
+                        data: [],
+                        borderColor: '#ef4444',
+                        borderWidth: 2,
+                        borderDash: [10, 5],
+                        fill: false,
+                        pointRadius: 0
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: {
+                    mode: 'index',
+                    intersect: false
+                },
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'top'
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return context.dataset.label + ': ' + context.parsed.y.toFixed(1) + '°C';
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: false,
+                        suggestedMin: 15,
+                        suggestedMax: 30,
+                        ticks: {
+                            callback: function(value) {
+                                return value + '°C';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+        
+        // MQTT Connection
+        function connectMQTT() {
+            client = mqtt.connect(url, options);
+
+            client.on('connect', function () {
+                console.log('Connected to MQTT broker');
+                updateConnectionStatus(true);
+
+                client.subscribe(Object.values(topics), function (err) {
+                    if (!err) {
+                        showToast('Tilkoblet', 'Koblet til MQTT broker', 'success');
+                    }
+                });
+            });
+
+            client.on('error', function (err) {
+                console.error('MQTT Error:', err);
+                updateConnectionStatus(false);
+                showToast('Feil', 'Kunne ikke koble til MQTT', 'warning');
+            });
+
+            client.on('message', function (topic, message) {
+                messageCount++;
+                document.getElementById('messages').textContent = messageCount;
+
+                const payload = message.toString();
+
+                if (topic === topics.temp) {
+                    const temp = parseFloat(payload);
+                    if (!isNaN(temp)) updateTemperature(temp);
+                }
+                else if (topic === topics.heater) {
+                    updateHeaterStatus(payload === 'ON');
+                }
+                else if (topic === topics.heartbeat) {
+                    // payload er ISO-tid fra worker, 
+                    const sent = Date.parse(payload);
+                    if (!isNaN(sent)) {
+                        const ms = Math.max(0, Date.now() - sent);
+                        document.getElementById('latency').textContent = `${ms} ms`;
+                    }
+                    document.getElementById('lastHeartbeat').textContent =
+                        new Date().toLocaleTimeString('no-NO', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                }
+            });
+
+
+        }
+
+        
+        function updateConnectionStatus(connected) {
+            const indicator = document.getElementById('connectionIndicator');
+            const text = document.getElementById('connectionText');
+            
+            if (connected) {
+                indicator.classList.remove('offline');
+                indicator.classList.add('online');
+                text.innerHTML = '<i class="fas fa-check-circle"></i> Tilkoblet';
+            } else {
+                indicator.classList.remove('online');
+                indicator.classList.add('offline');
+                text.innerHTML = '<i class="fas fa-exclamation-circle"></i> Frakoblet';
+            }
+        }
+        
+        function updateTemperature(temp) {
+            // Update display
+            document.getElementById('currentTemp').textContent = temp.toFixed(1) + '°C';
+            
+            // Update min/max
+            if (minTemp === null || temp < minTemp) {
+                minTemp = temp;
+                document.getElementById('minTemp').textContent = minTemp.toFixed(1);
+            }
+            if (maxTemp === null || temp > maxTemp) {
+                maxTemp = temp;
+                document.getElementById('maxTemp').textContent = maxTemp.toFixed(1);
+            }
+            
+            // Add to history
+            tempHistory.push(temp);
+            if (tempHistory.length > 30) {
+                tempHistory.shift();
+            }
+            
+            // Calculate average
+            const avg = tempHistory.reduce((sum, t) => sum + t, 0) / tempHistory.length;
+            document.getElementById('avgTemp').textContent = avg.toFixed(1);
+            
+            // Update chart
+            const now = new Date().toLocaleTimeString('no-NO', {
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            });
+            
+            chart.data.labels.push(now);
+            chart.data.datasets[0].data.push(temp);
+            chart.data.datasets[1].data.push(21);
+            
+            if (chart.data.labels.length > 30) {
+                chart.data.labels.shift();
+                chart.data.datasets[0].data.shift();
+                chart.data.datasets[1].data.shift();
+            }
+            
+            chart.update();
+            
+           
+        }
+        
+        function updateHeaterStatus(isOn) {
+            const statusDiv = document.getElementById('heaterStatus');
+            
+            if (isOn) {
+                statusDiv.className = 'heater-status on';
+                statusDiv.innerHTML = '<i class="fas fa-fire"></i><span>PÅSLÅTT</span>';
+            } else {
+                statusDiv.className = 'heater-status off';
+                statusDiv.innerHTML = '<i class="fas fa-power-off"></i><span>AVSLÅTT</span>';
+            }
+        }
+        
+        function sendTemp(temp) {
+            if (client && client.connected) {
+                client.publish(topics.temp, String(temp), { qos: 1, retain: true }); // ⬅ retain
+                showToast('Sendt', `Temperatur: ${temp}°C`, 'success');
+            } else {
+                showToast('Feil', 'Ikke tilkoblet MQTT', 'warning');
+            }
+        }
+        
+        function sendCustomTemp() {
+            const input = document.getElementById('customTemp');
+            const temp = parseFloat(input.value);
+            
+            if (!isNaN(temp) && temp >= 10 && temp <= 35) {
+                sendTemp(temp);
+                input.value = '';
+            } else {
+                showToast('Ugyldig', 'Temperatur må være mellom 10-35°C', 'warning');
+            }
+        }
+        
+        function sendRandomSequence() {
+            const temps = [];
+            for (let i = 0; i < 5; i++) {
+                temps.push((Math.random() * 10 + 17).toFixed(1));
+            }
+            
+            temps.forEach((temp, index) => {
+                setTimeout(() => sendTemp(parseFloat(temp)), index * 1000);
+            });
+            
+            showToast('Sekvens startet', `Sender ${temps.length} målinger`, 'success');
+        }
+        
+        function showToast(title, message, type = 'success') {
+            const toast = document.getElementById('toast');
+            const toastTitle = document.getElementById('toastTitle');
+            const toastMessage = document.getElementById('toastMessage');
+            const icon = toast.querySelector('.toast-icon i');
+            
+            toast.className = `toast toast-${type}`;
+            toastTitle.textContent = title;
+            toastMessage.textContent = message;
+            
+            if (type === 'success') {
+                icon.className = 'fas fa-check';
+                toast.querySelector('.toast-icon').style.background = '#d1fae5';
+                toast.querySelector('.toast-icon').style.color = '#10b981';
+            } else if (type === 'warning') {
+                icon.className = 'fas fa-exclamation';
+                toast.querySelector('.toast-icon').style.background = '#fed7aa';
+                toast.querySelector('.toast-icon').style.color = '#f59e0b';
+            }
+            
+            toast.classList.add('show');
+            
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+        
+        // Update uptime
+        setInterval(() => {
+            const uptime = Math.floor((Date.now() - startTime) / 1000);
+            const hours = Math.floor(uptime / 3600);
+            const minutes = Math.floor((uptime % 3600) / 60);
+            const seconds = uptime % 60;
+            
+            document.getElementById('uptime').textContent = 
+                `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        }, 1000);
+        
+        // Handle Enter key on custom temp input
+        document.getElementById('customTemp').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                sendCustomTemp();
+            }
+        });
+        
+        // Initialize connection
+        connectMQTT();
+        
+        // Send initial data after 2 seconds
+        setTimeout(() => {
+            if (client && client.connected) {
+                sendTemp(20.5);
+            }
+        }, 2000);
+    </script>
+</body>
+</html>

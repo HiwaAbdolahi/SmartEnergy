@@ -5,6 +5,7 @@ services:
     container_name: mosquitto
     ports:
       - "1883:1883"
+      - "9001:9001"                                                             # WebSocket port for nettleser 
     volumes:
       - ./infra/mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
       - ./infra/mosquitto/data:/mosquitto/data
@@ -17,3 +18,14 @@ services:
       - mosquitto
     environment:
       - DOTNET_ENVIRONMENT=Development
+
+  dashboard:
+    image: nginx:alpine
+    container_name: smartenergy-dashboard
+    ports:
+      - "8080:80"
+    volumes:
+      - ./dashboard:/usr/share/nginx/html:ro
+      - ./infra/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro 
+    depends_on:
+      - mosquitto
