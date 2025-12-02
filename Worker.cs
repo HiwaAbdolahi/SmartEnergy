@@ -33,7 +33,7 @@ public class Worker(ILogger<Worker> log, IOptions<MqttSettings> mqtt, IOptions<L
                     "home/stue/heater/cmd",
                     cmd,
                     MqttQualityOfServiceLevel.AtLeastOnce,
-                    retain: false,
+                    retain: true,
                     ct
                 );
                 _log.LogInformation("TX home/stue/heater/cmd => {Cmd}", cmd);
