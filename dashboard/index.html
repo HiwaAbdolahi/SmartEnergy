@@ -18,7 +18,7 @@
             padding: 0;
             box-sizing: border-box;
         }
-        
+
         :root {
             --primary: #6366f1;
             --primary-dark: #4f46e5;
@@ -34,7 +34,7 @@
             --shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
             --shadow-lg: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
         }
-        
+
         body {
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -42,29 +42,34 @@
             position: relative;
             overflow-x: hidden;
         }
-        
-        /* Animated background */
-        body::before {
-            content: '';
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: 
-                radial-gradient(circle at 20% 80%, rgba(99, 102, 241, 0.3) 0%, transparent 50%),
-                radial-gradient(circle at 80% 20%, rgba(139, 92, 246, 0.3) 0%, transparent 50%),
-                radial-gradient(circle at 40% 40%, rgba(236, 72, 153, 0.2) 0%, transparent 50%);
-            animation: float 20s ease-in-out infinite;
-            pointer-events: none;
-        }
-        
+
+            /* Animated background */
+            body::before {
+                content: '';
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: radial-gradient(circle at 20% 80%, rgba(99, 102, 241, 0.3) 0%, transparent 50%), radial-gradient(circle at 80% 20%, rgba(139, 92, 246, 0.3) 0%, transparent 50%), radial-gradient(circle at 40% 40%, rgba(236, 72, 153, 0.2) 0%, transparent 50%);
+                animation: float 20s ease-in-out infinite;
+                pointer-events: none;
+            }
+
         @keyframes float {
-            0%, 100% { transform: translate(0, 0) rotate(0deg); }
-            33% { transform: translate(-20px, -20px) rotate(1deg); }
-            66% { transform: translate(20px, -10px) rotate(-1deg); }
+            0%, 100% {
+                transform: translate(0, 0) rotate(0deg);
+            }
+
+            33% {
+                transform: translate(-20px, -20px) rotate(1deg);
+            }
+
+            66% {
+                transform: translate(20px, -10px) rotate(-1deg);
+            }
         }
-        
+
         .container {
             max-width: 1400px;
             margin: 0 auto;
@@ -72,7 +77,7 @@
             position: relative;
             z-index: 1;
         }
-        
+
         /* Header */
         .header {
             background: rgba(255, 255, 255, 0.95);
@@ -83,7 +88,7 @@
             box-shadow: var(--shadow-lg);
             border: 1px solid rgba(255, 255, 255, 0.8);
         }
-        
+
         .header-content {
             display: flex;
             justify-content: space-between;
@@ -91,7 +96,7 @@
             flex-wrap: wrap;
             gap: 20px;
         }
-        
+
         .header h1 {
             font-size: 2rem;
             font-weight: 800;
@@ -100,12 +105,12 @@
             -webkit-text-fill-color: transparent;
             margin-bottom: 5px;
         }
-        
+
         .header-subtitle {
             color: var(--text-light);
             font-size: 1rem;
         }
-        
+
         .connection-status {
             display: flex;
             align-items: center;
@@ -115,36 +120,52 @@
             border-radius: 50px;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         }
-        
+
         .status-indicator {
             width: 12px;
             height: 12px;
             border-radius: 50%;
             position: relative;
         }
-        
-        .status-indicator.online {
-            background: var(--success);
-            animation: pulse-green 2s infinite;
-        }
-        
-        .status-indicator.offline {
-            background: var(--danger);
-            animation: pulse-red 2s infinite;
-        }
-        
+
+            .status-indicator.online {
+                background: var(--success);
+                animation: pulse-green 2s infinite;
+            }
+
+            .status-indicator.offline {
+                background: var(--danger);
+                animation: pulse-red 2s infinite;
+            }
+
         @keyframes pulse-green {
-            0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
-            70% { box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); }
-            100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+            0% {
+                box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+            }
+
+            70% {
+                box-shadow: 0 0 0 10px rgba(16, 185, 129, 0);
+            }
+
+            100% {
+                box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+            }
         }
-        
+
         @keyframes pulse-red {
-            0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
-            70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
-            100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+            0% {
+                box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+            }
+
+            70% {
+                box-shadow: 0 0 0 10px rgba(239, 68, 68, 0);
+            }
+
+            100% {
+                box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+            }
         }
-        
+
         /* Dashboard Grid */
         .dashboard-grid {
             display: grid;
@@ -152,7 +173,7 @@
             gap: 25px;
             margin-bottom: 30px;
         }
-        
+
         .card {
             background: rgba(255, 255, 255, 0.95);
             backdrop-filter: blur(10px);
@@ -164,35 +185,35 @@
             position: relative;
             overflow: hidden;
         }
-        
-        .card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 4px;
-            background: linear-gradient(90deg, #667eea, #764ba2);
-            opacity: 0;
-            transition: opacity 0.3s;
-        }
-        
-        .card:hover {
-            transform: translateY(-5px);
-            box-shadow: var(--shadow-lg);
-        }
-        
-        .card:hover::before {
-            opacity: 1;
-        }
-        
+
+            .card::before {
+                content: '';
+                position: absolute;
+                top: 0;
+                left: 0;
+                right: 0;
+                height: 4px;
+                background: linear-gradient(90deg, #667eea, #764ba2);
+                opacity: 0;
+                transition: opacity 0.3s;
+            }
+
+            .card:hover {
+                transform: translateY(-5px);
+                box-shadow: var(--shadow-lg);
+            }
+
+                .card:hover::before {
+                    opacity: 1;
+                }
+
         .card-header {
             display: flex;
             align-items: center;
             gap: 15px;
             margin-bottom: 20px;
         }
-        
+
         .card-icon {
             width: 50px;
             height: 50px;
@@ -202,29 +223,29 @@
             border-radius: 12px;
             font-size: 1.5rem;
         }
-        
+
         .card-title {
             flex: 1;
         }
-        
-        .card-title h3 {
-            font-size: 1.1rem;
-            font-weight: 600;
-            color: var(--dark);
-            margin-bottom: 3px;
-        }
-        
-        .card-title span {
-            font-size: 0.85rem;
-            color: var(--text-light);
-        }
-        
+
+            .card-title h3 {
+                font-size: 1.1rem;
+                font-weight: 600;
+                color: var(--dark);
+                margin-bottom: 3px;
+            }
+
+            .card-title span {
+                font-size: 0.85rem;
+                color: var(--text-light);
+            }
+
         /* Temperature Card */
         .temp-card .card-icon {
             background: linear-gradient(135deg, #667eea, #764ba2);
             color: white;
         }
-        
+
         .temp-display {
             font-size: 3.5rem;
             font-weight: 800;
@@ -235,111 +256,180 @@
             margin: 20px 0;
             line-height: 1;
         }
-        
+
         .temp-stats {
             display: grid;
             grid-template-columns: 1fr 1fr 1fr;
             gap: 15px;
             margin-top: 20px;
         }
-        
+
         .stat-item {
             text-align: center;
             padding: 12px;
             background: #f8fafc;
             border-radius: 10px;
         }
-        
+
         .stat-value {
             font-size: 1.3rem;
             font-weight: 700;
             color: var(--dark);
         }
-        
+
         .stat-label {
             font-size: 0.75rem;
             color: var(--text-light);
             text-transform: uppercase;
             margin-top: 3px;
         }
-        
+
+        /* ---------------------------------------------------------------------------------------------------------ned------------------------------------------------------ */
         /* Heater Card */
         .heater-card .card-icon {
             background: linear-gradient(135deg, #f59e0b, #ef4444);
             color: white;
         }
-        
+
         .heater-status {
             display: flex;
             justify-content: center;
             align-items: center;
-            height: 120px;
-            border-radius: 15px;
-            font-size: 1.5rem;
+            padding: 30px;
+            position: relative;
+        }
+
+        .power-switch {
+            width: 200px;
+            height: 100px;
+            background: linear-gradient(145deg, #e0e0e0, #f5f5f5);
+            border-radius: 50px;
+            position: relative;
+            cursor: pointer;
+            box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.1), 0 10px 20px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+        }
+
+            .power-switch.on {
+                background: linear-gradient(145deg, #ff6b6b, #ff8787);
+                box-shadow: inset 0 0 20px rgba(255, 255, 255, 0.2), 0 0 40px rgba(255, 107, 107, 0.5), 0 10px 20px rgba(0, 0, 0, 0.2);
+            }
+
+        .power-toggle {
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(145deg, #ffffff, #e6e6e6);
+            border-radius: 50%;
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            box-shadow: 0 5px 10px rgba(0, 0, 0, 0.3), inset 0 -2px 5px rgba(0, 0, 0, 0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .power-switch.on .power-toggle {
+            left: 110px;
+            background: linear-gradient(145deg, #ffcc00, #ff9500);
+            box-shadow: 0 5px 20px rgba(255, 153, 0, 0.6), inset 0 -2px 5px rgba(0, 0, 0, 0.2);
+        }
+
+        .power-toggle i {
+            font-size: 2rem;
+            color: #666;
+            transition: all 0.3s ease;
+        }
+
+        .power-switch.on .power-toggle i {
+            color: white;
+            filter: drop-shadow(0 0 5px rgba(255, 255, 255, 0.5));
+        }
+
+        .heater-info {
+            margin-top: 25px;
+            text-align: center;
+        }
+
+        .heater-label {
+            font-size: 1.2rem;
             font-weight: 700;
             text-transform: uppercase;
-            letter-spacing: 1px;
-            transition: all 0.5s ease;
-            position: relative;
-            overflow: hidden;
+            letter-spacing: 2px;
+            color: #94a3b8;
+            transition: all 0.3s ease;
         }
-        
-        .heater-status.on {
-            background: linear-gradient(135deg, #f59e0b, #ef4444);
-            color: white;
-            animation: glow 2s ease-in-out infinite;
-        }
-        
+
+            .heater-label.on {
+                color: #f59e0b;
+                text-shadow: 0 0 20px rgba(245, 158, 11, 0.5);
+            }
+
+
+
+
+        /*-----------------------------------------------------------------------------------------opp-----------------------------------------------------------*/
+
+
+
+
+
         .heater-status.off {
             background: #f1f5f9;
             color: #94a3b8;
         }
-        
+
         @keyframes glow {
-            0%, 100% { box-shadow: 0 0 20px rgba(239, 68, 68, 0.3); }
-            50% { box-shadow: 0 0 40px rgba(239, 68, 68, 0.6); }
+            0%, 100% {
+                box-shadow: 0 0 20px rgba(239, 68, 68, 0.3);
+            }
+
+            50% {
+                box-shadow: 0 0 40px rgba(239, 68, 68, 0.6);
+            }
         }
-        
+
         .heater-status i {
             font-size: 2.5rem;
             margin-right: 15px;
         }
-        
+
         /* System Card */
         .system-card .card-icon {
             background: linear-gradient(135deg, #10b981, #34d399);
             color: white;
         }
-        
+
         .system-metrics {
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 15px;
         }
-        
+
         .metric-box {
             padding: 15px;
             background: #f8fafc;
             border-radius: 12px;
             border-left: 4px solid;
         }
-        
-        .metric-box.uptime {
-            border-color: var(--success);
-        }
-        
-        .metric-box.messages {
-            border-color: var(--primary);
-        }
-        
-        .metric-box.heartbeat {
-            border-color: var(--warning);
-        }
-        
-        .metric-box.latency {
-            border-color: var(--danger);
-        }
-        
+
+            .metric-box.uptime {
+                border-color: var(--success);
+            }
+
+            .metric-box.messages {
+                border-color: var(--primary);
+            }
+
+            .metric-box.heartbeat {
+                border-color: var(--warning);
+            }
+
+            .metric-box.latency {
+                border-color: var(--danger);
+            }
+
         .metric-label {
             display: flex;
             align-items: center;
@@ -348,13 +438,13 @@
             color: var(--text-light);
             margin-bottom: 5px;
         }
-        
+
         .metric-value {
             font-size: 1.5rem;
             font-weight: 700;
             color: var(--dark);
         }
-        
+
         /* Control Panel */
         .control-panel {
             background: rgba(255, 255, 255, 0.95);
@@ -364,30 +454,30 @@
             box-shadow: var(--shadow);
             margin-bottom: 30px;
         }
-        
+
         .control-header {
             display: flex;
             align-items: center;
             gap: 10px;
             margin-bottom: 20px;
         }
-        
-        .control-header i {
-            font-size: 1.5rem;
-            color: var(--primary);
-        }
-        
-        .control-header h3 {
-            font-size: 1.2rem;
-            color: var(--dark);
-        }
-        
+
+            .control-header i {
+                font-size: 1.5rem;
+                color: var(--primary);
+            }
+
+            .control-header h3 {
+                font-size: 1.2rem;
+                color: var(--dark);
+            }
+
         .control-buttons {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
             gap: 15px;
         }
-        
+
         .control-btn {
             padding: 15px;
             border: none;
@@ -402,73 +492,73 @@
             gap: 10px;
             color: white;
         }
-        
-        .control-btn:hover {
-            transform: scale(1.05);
-        }
-        
+
+            .control-btn:hover {
+                transform: scale(1.05);
+            }
+
         .btn-cold {
             background: linear-gradient(135deg, #3b82f6, #06b6d4);
         }
-        
+
         .btn-normal {
             background: linear-gradient(135deg, #10b981, #34d399);
         }
-        
+
         .btn-hot {
             background: linear-gradient(135deg, #f59e0b, #ef4444);
         }
-        
+
         .btn-random {
             background: linear-gradient(135deg, #8b5cf6, #ec4899);
         }
-        
+
         .custom-temp {
             display: flex;
             gap: 10px;
             margin-top: 15px;
         }
-        
-        .custom-temp input {
-            flex: 1;
-            padding: 12px 15px;
-            border: 2px solid var(--border);
-            border-radius: 10px;
-            font-size: 1rem;
-            transition: border-color 0.3s;
-        }
-        
-        .custom-temp input:focus {
-            outline: none;
-            border-color: var(--primary);
-        }
-        
-        .custom-temp button {
-            padding: 12px 25px;
-            background: linear-gradient(135deg, #667eea, #764ba2);
-            color: white;
-            border: none;
-            border-radius: 10px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: transform 0.3s;
-        }
-        
-        .custom-temp button:hover {
-            transform: scale(1.05);
-        }
-        
+
+            .custom-temp input {
+                flex: 1;
+                padding: 12px 15px;
+                border: 2px solid var(--border);
+                border-radius: 10px;
+                font-size: 1rem;
+                transition: border-color 0.3s;
+            }
+
+                .custom-temp input:focus {
+                    outline: none;
+                    border-color: var(--primary);
+                }
+
+            .custom-temp button {
+                padding: 12px 25px;
+                background: linear-gradient(135deg, #667eea, #764ba2);
+                color: white;
+                border: none;
+                border-radius: 10px;
+                font-weight: 600;
+                cursor: pointer;
+                transition: transform 0.3s;
+            }
+
+                .custom-temp button:hover {
+                    transform: scale(1.05);
+                }
+
         /* Chart Container */
         .chart-card {
             grid-column: span 2;
         }
-        
+
         .chart-container {
             position: relative;
             height: 350px;
             margin-top: 20px;
         }
-        
+
         /* Notification Toast */
         .toast {
             position: fixed;
@@ -485,11 +575,11 @@
             transition: transform 0.3s ease;
             z-index: 1000;
         }
-        
-        .toast.show {
-            transform: translateX(0);
-        }
-        
+
+            .toast.show {
+                transform: translateX(0);
+            }
+
         .toast-icon {
             width: 30px;
             height: 30px;
@@ -498,68 +588,68 @@
             align-items: center;
             justify-content: center;
         }
-        
+
         .toast-success .toast-icon {
             background: #d1fae5;
             color: var(--success);
         }
-        
+
         .toast-warning .toast-icon {
             background: #fed7aa;
             color: var(--warning);
         }
-        
+
         .toast-content {
             flex: 1;
         }
-        
+
         .toast-title {
             font-weight: 600;
             color: var(--dark);
             margin-bottom: 2px;
         }
-        
+
         .toast-message {
             font-size: 0.9rem;
             color: var(--text-light);
         }
-        
+
         /* Footer */
         .footer {
             text-align: center;
             padding: 30px;
             color: white;
         }
-        
-        .footer a {
-            color: white;
-            text-decoration: none;
-            font-weight: 600;
-        }
-        
-        .footer a:hover {
-            text-decoration: underline;
-        }
-        
+
+            .footer a {
+                color: white;
+                text-decoration: none;
+                font-weight: 600;
+            }
+
+                .footer a:hover {
+                    text-decoration: underline;
+                }
+
         /* Responsive */
         @media (max-width: 768px) {
             .dashboard-grid {
                 grid-template-columns: 1fr;
             }
-            
+
             .chart-card {
                 grid-column: span 1;
             }
-            
+
             .header h1 {
                 font-size: 1.5rem;
             }
-            
+
             .temp-display {
                 font-size: 2.5rem;
             }
         }
-        
+
         /* Loading Animation */
         .loading-spinner {
             display: inline-block;
@@ -570,11 +660,76 @@
             border-radius: 50%;
             animation: spin 1s linear infinite;
         }
-        
+
         @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
         }
+
+
+
+
+        @keyframes dataPulse {
+            0% {
+                transform: scale(1);
+            }
+
+            50% {
+                transform: scale(1.05);
+                filter: brightness(1.2);
+            }
+
+            100% {
+                transform: scale(1);
+            }
+        }
+
+        .temp-display.pulse {
+            animation: dataPulse 0.5s ease-out;
+        }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     </style>
 </head>
 <body>
@@ -656,7 +811,7 @@
                     </div>
                 </div>
             </div>
-            
+
             <!-- Heater Card -->
             <div class="card heater-card">
                 <div class="card-header">
@@ -668,22 +823,28 @@
                         <span>home/stue/heater/cmd</span>
                     </div>
                 </div>
-                <div class="heater-status off" id="heaterStatus">
-                    <i class="fas fa-power-off"></i>
-                    <span>Venter på data...</span>
+                <div class="heater-status">
+                    <div class="power-switch" id="heaterSwitch">
+                        <div class="power-toggle">
+                            <i class="fas fa-power-off" id="powerIcon"></i>
+                        </div>
+                    </div>
                 </div>
-                <div style="margin-top: 20px; padding: 15px; background: #f8fafc; border-radius: 10px;">
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <span style="color: var(--text-light); font-size: 0.9rem;">
-                            <i class="fas fa-info-circle"></i> Automatisk kontroll
-                        </span>
-                        <span style="font-weight: 600; color: var(--dark);">
-                            Terskel: 21°C
-                        </span>
+                <div class="heater-info">
+                    <div class="heater-label" id="heaterLabel">AVSLÅTT</div>
+                    <div style="margin-top: 15px; padding: 15px; background: #f8fafc; border-radius: 10px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <span style="color: var(--text-light); font-size: 0.9rem;">
+                                <i class="fas fa-info-circle"></i> Auto-kontroll
+                            </span>
+                            <span style="font-weight: 600; color: var(--dark);">
+                                Temp < 21°C
+                            </span>
+                        </div>
                     </div>
                 </div>
             </div>
-            
+
             <!-- System Status Card -->
             <div class="card system-card">
                 <div class="card-header">
@@ -726,7 +887,7 @@
                     </div>
                 </div>
             </div>
-            
+
             <!-- Chart Card -->
             <div class="card chart-card">
                 <div class="card-header">
@@ -992,16 +1153,33 @@
         }
         
         function updateHeaterStatus(isOn) {
-            const statusDiv = document.getElementById('heaterStatus');
-            
+            const switchElement = document.getElementById('heaterSwitch');
+            const labelElement = document.getElementById('heaterLabel');
+            const iconElement = document.getElementById('powerIcon');
+
             if (isOn) {
-                statusDiv.className = 'heater-status on';
-                statusDiv.innerHTML = '<i class="fas fa-fire"></i><span>PÅSLÅTT</span>';
+                switchElement.classList.add('on');
+                labelElement.classList.add('on');
+                labelElement.textContent = 'PÅSLÅTT';
+                iconElement.className = 'fas fa-fire';
             } else {
-                statusDiv.className = 'heater-status off';
-                statusDiv.innerHTML = '<i class="fas fa-power-off"></i><span>AVSLÅTT</span>';
+                switchElement.classList.remove('on');
+                labelElement.classList.remove('on');
+                labelElement.textContent = 'AVSLÅTT';
+                iconElement.className = 'fas fa-power-off';
             }
         }
+
+        
+        /*function toggleHeater() {                                                       // Manuell toggle (Må ha en knapp for slå av Auto kontroll da den skal virke)
+            // Manuell toggle (valgfritt)
+            const switchElement = document.getElementById('heaterSwitch');
+            const isOn = !switchElement.classList.contains('on');
+            if (client && client.connected) {
+                client.publish(topics.heater, isOn ? 'ON' : 'OFF');
+            }
+        }
+        */
         
         function sendTemp(temp) {
             if (client && client.connected) {
