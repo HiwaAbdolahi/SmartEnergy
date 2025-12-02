@@ -772,11 +772,7 @@
     <script>
         // --- MQTT WebSocket URL via nginx-proxy (samme origin som 8080) ---
         const url = (location.protocol === 'https:' ? 'wss' : 'ws') + '://' + location.host + '/mqtt';
-        const WS_HOST = location.hostname;   // samme host som dashboardet
-        const WS_PORT = 9001;                // eksponert i docker-compose
-        const WS_PATH = '/';                  // <-- trailing slash for iOS/Safari; Mosquitto websockets lytter på "/"
 
-        const url = `${WS_PROTOCOL}://${WS_HOST}:${WS_PORT}${WS_PATH}`;
 
         const options = {
             clean: true,
@@ -871,52 +867,67 @@
         
         // MQTT Connection
         function connectMQTT() {
+            console.log('WS URL:', url);
             client = mqtt.connect(url, options);
 
-            client.on('connect', function () {
-                console.log('Connected to MQTT broker');
+            client.on('connect', () => {
+                console.log('MQTT connected');
                 updateConnectionStatus(true);
-
-                client.subscribe(Object.values(topics), function (err) {
-                    if (!err) {
-                        showToast('Tilkoblet', 'Koblet til MQTT broker', 'success');
-                    }
+                client.subscribe(Object.values(topics), (err) => {
+                    if (!err) showToast('Tilkoblet', 'Koblet til MQTT broker', 'success');
+                    else console.error('Subscribe error:', err);
                 });
             });
 
-            client.on('error', function (err) {
+            client.on('reconnect', () => {
+                console.log('MQTT reconnecting…');
+                updateConnectionStatus(false);
+                document.getElementById('connectionText').innerHTML = '<i class="fas fa-sync-alt"></i> Kobler til…';
+            });
+
+            client.on('close', () => {
+                console.log('MQTT closed');
+                updateConnectionStatus(false);
+            });
+
+            client.on('offline', () => {
+                console.log('MQTT offline');
+                updateConnectionStatus(false);
+            });
+
+            client.on('error', (err) => {
                 console.error('MQTT Error:', err);
                 updateConnectionStatus(false);
                 showToast('Feil', 'Kunne ikke koble til MQTT', 'warning');
             });
 
-            client.on('message', function (topic, message) {
+            client.on('message', (topic, message) => {
                 messageCount++;
                 document.getElementById('messages').textContent = messageCount;
 
-                const payload = message.toString();
-
                 if (topic === topics.temp) {
-                    const temp = parseFloat(payload);
+                    const temp = parseFloat(message.toString());
                     if (!isNaN(temp)) updateTemperature(temp);
+                    return;
                 }
-                else if (topic === topics.heater) {
-                    updateHeaterStatus(payload === 'ON');
+
+                if (topic === topics.heater) {
+                    updateHeaterStatus(message.toString() === 'ON');
+                    return;
                 }
-                else if (topic === topics.heartbeat) {
-                    // payload er ISO-tid fra worker, 
-                    const sent = Date.parse(payload);
-                    if (!isNaN(sent)) {
-                        const ms = Math.max(0, Date.now() - sent);
-                        document.getElementById('latency').textContent = `${ms} ms`;
-                    }
+
+                if (topic === topics.heartbeat) {
+                    // ← RIKTIG latency: bruk ISO-tidsstempelet fra worker
+                    const sent = Date.parse(message.toString());
+                    const ms = isNaN(sent) ? null : Math.max(0, Date.now() - sent);
                     document.getElementById('lastHeartbeat').textContent =
                         new Date().toLocaleTimeString('no-NO', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                    if (ms !== null) document.getElementById('latency').textContent = `${ms} ms`;
+                    return;
                 }
             });
-
-
         }
+
 
         
         function updateConnectionStatus(connected) {
@@ -1074,12 +1085,7 @@
         // Initialize connection
         connectMQTT();
         
-        // Send initial data after 2 seconds
-        setTimeout(() => {
-            if (client && client.connected) {
-                sendTemp(20.5);
-            }
-        }, 2000);
+        
     </script>
 </body>
 </html>
