@@ -1,4 +1,4 @@
-namespace SmartEnergy;
+namespace SmartEnergy.workerC;
 
 using Microsoft.Extensions.Options;
 using MQTTnet;

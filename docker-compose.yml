@@ -1,31 +1,25 @@
-
 services:
   mosquitto:
-    image: eclipse-mosquitto:2
+    build:
+      context: ./mosquittoC     # <- bruk riktig mappe
     container_name: mosquitto
     ports:
       - "1883:1883"
-      - "9001:9001"                                                             # WebSocket port for nettleser 
-    volumes:
-      - ./infra/mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
-      - ./infra/mosquitto/data:/mosquitto/data
-      - ./infra/mosquitto/log:/mosquitto/log
-
-  smartenergy:
-    build: .
-    container_name: smartenergy
-    depends_on:
-      - mosquitto
-    environment:
-      - DOTNET_ENVIRONMENT=Development
+      - "9001:9001"
 
   dashboard:
-    image: nginx:alpine
+    build:
+      context: ./dashboardC     # <- bruk riktig mappe
     container_name: smartenergy-dashboard
     ports:
       - "8080:80"
-    volumes:
-      - ./dashboard:/usr/share/nginx/html:ro
-      - ./infra/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro 
+    depends_on:
+      - mosquitto
+
+  smartenergy:
+    build:
+      context: ./workerC        # <- bygg fra workerC
+      dockerfile: Dockerfile    # (kan utelates; standardnavn)
+    container_name: smartenergy
     depends_on:
       - mosquitto

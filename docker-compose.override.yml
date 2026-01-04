@@ -1,0 +1,18 @@
+﻿# docker-compose.dev.yml
+services:
+  dashboard:
+    volumes:
+      # Live-serve alle statiske filer
+      - ./dashboardC:/usr/share/nginx/html:ro
+      # Konfig må fortsatt inn i conf.d
+      - ./dashboardC/default.conf:/etc/nginx/conf.d/default.conf:ro
+
+  mosquitto:
+    volumes:
+      - ./mosquittoC/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      #  persist data/logg:
+      # - mosq-data:/mosquitto/data
+      # - mosq-log:/mosquitto/log
+#volumes:
+#  mosq-data:
+#  mosq-log:

@@ -1,4 +1,4 @@
-﻿namespace SmartEnergy;
+﻿namespace SmartEnergy.workerC;
 
 public class MqttSettings
 {
