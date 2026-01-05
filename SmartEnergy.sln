@@ -3,12 +3,27 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.14.36408.4
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SmartEnergy", "SmartEnergy.csproj", "{BB15E845-9816-4D11-9864-CC001A75084D}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SmartEnergy", "workerC\SmartEnergy.csproj", "{BB15E845-9816-4D11-9864-CC001A75084D}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{02EA681E-C7D8-13C7-8484-4AC65E1B71E8}"
 	ProjectSection(SolutionItems) = preProject
 		docker-compose.yml = docker-compose.yml
-		infra\mosquitto\mosquitto.conf = infra\mosquitto\mosquitto.conf
+		docker-compose.override.yml = docker-compose.override.yml
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Dashboard", "Dashboard", "{0AEE561F-BFC3-48FE-9688-7B9BB07BB289}"
+	ProjectSection(SolutionItems) = preProject
+		dashboardC\.dockerignore = dashboardC\.dockerignore
+		dashboardC\default.conf = dashboardC\default.conf
+		dashboardC\Dockerfile = dashboardC\Dockerfile
+		dashboardC\index.html = dashboardC\index.html
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Mosquitto", "Mosquitto", "{4277F795-2477-4EB2-B7B9-C1CADC7AEC8E}"
+	ProjectSection(SolutionItems) = preProject
+		mosquittoC\.dockerignore = mosquittoC\.dockerignore
+		mosquittoC\Dockerfile = mosquittoC\Dockerfile
+		mosquittoC\mosquitto.conf = mosquittoC\mosquitto.conf
 	EndProjectSection
 EndProject
 Global
@@ -24,6 +39,10 @@ Global
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{0AEE561F-BFC3-48FE-9688-7B9BB07BB289} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
+		{4277F795-2477-4EB2-B7B9-C1CADC7AEC8E} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {EB302173-DAA5-42A0-B610-F7B650637320}

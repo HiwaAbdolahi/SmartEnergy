@@ -1,4 +1,4 @@
-using SmartEnergy;
+using SmartEnergy.workerC;
 
 var builder = Host.CreateApplicationBuilder(args);
 
