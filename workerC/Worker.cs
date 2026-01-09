@@ -18,7 +18,7 @@ public class Worker(ILogger<Worker> log, IOptions<MqttSettings> mqtt, IOptions<L
         var factory = new MqttFactory();
         var client = factory.CreateMqttClient();
 
-        // --- RX: reagér på temp og publiser kommando -------------------------
+        // Reager på innkommende meldinger (samme logikk som før)
         client.ApplicationMessageReceivedAsync += async e =>
         {
             var topic = e.ApplicationMessage.Topic;
@@ -40,17 +40,16 @@ public class Worker(ILogger<Worker> log, IOptions<MqttSettings> mqtt, IOptions<L
             }
         };
 
-        // --- LWT: status = offline om klienten dør uventet --------------------
-        var options = new MqttClientOptionsBuilder()
-            .WithTcpServer(_cfg.Host, _cfg.Port)
-            .WithClientId(_cfg.ClientId)
-            .WithWillTopic("home/edge/worker/status")
-            .WithWillPayload("offline")
-            .WithWillQualityOfServiceLevel(MqttQualityOfServiceLevel.AtLeastOnce)
-            .WithWillRetain(true) 
-            .Build(); ;
+        client.DisconnectedAsync += e =>
+        {
+            _log.LogWarning("MQTT disconnected: {Reason}", e.ReasonString);
+            return Task.CompletedTask;
+        };
 
-        // Hovedløkke: sikrer reconnect + heartbeat på fast intervall
+        // Bygg MQTT options: WebSocket (wss) hvis WsUrl er satt, ellers TCP (lokalt)
+        var options = BuildClientOptions(_cfg);
+
+        // Hovedløkke: reconnect + heartbeat
         while (!ct.IsCancellationRequested)
         {
             if (!client.IsConnected)
@@ -58,12 +57,13 @@ public class Worker(ILogger<Worker> log, IOptions<MqttSettings> mqtt, IOptions<L
                 try
                 {
                     await client.ConnectAsync(options, ct);
-                    _log.LogInformation("MQTT connected to {Host}:{Port}", _cfg.Host, _cfg.Port);
+                    _log.LogInformation("MQTT connected ({Mode})",
+                        string.IsNullOrWhiteSpace(_cfg.WsUrl) ? $"tcp://{_cfg.Host}:{_cfg.Port}" : _cfg.WsUrl);
 
                     await client.SubscribeAsync("home/stue/temp", MqttQualityOfServiceLevel.AtLeastOnce, ct);
                     _log.LogInformation("Subscribed to home/stue/temp");
 
-                    // Marker online (retained), så dashboard ser grønn prikk umiddelbart
+                    // Marker online (retained)
                     await client.PublishStringAsync(
                         "home/edge/worker/status",
                         "online",
@@ -76,13 +76,13 @@ public class Worker(ILogger<Worker> log, IOptions<MqttSettings> mqtt, IOptions<L
                 {
                     _log.LogWarning(ex, "Connect/subscribe failed, retrying in 2s...");
                     await Task.Delay(2000, ct);
-                    continue; // prøv igjen i neste iterasjon
+                    continue;
                 }
             }
 
-            // Publiser heartbeat med ISO-UTC (dashboard måler latency korrekt)
             try
             {
+                // Heartbeat (ISO-UTC)
                 var beat = DateTimeOffset.UtcNow.ToString("O");
                 await client.PublishStringAsync(
                     "home/demo/heartbeat",
@@ -95,10 +95,46 @@ public class Worker(ILogger<Worker> log, IOptions<MqttSettings> mqtt, IOptions<L
             }
             catch (Exception ex)
             {
-                _log.LogWarning(ex, "Publish heartbeat failed (vil forsøke reconnect neste runde).");
+                _log.LogWarning(ex, "Publish heartbeat failed (will try reconnect next loop).");
             }
 
             await Task.Delay(TimeSpan.FromSeconds(_loop.IntervalSeconds), ct);
         }
+    }
+
+    private static MqttClientOptions BuildClientOptions(MqttSettings cfg)
+    {
+        var b = new MqttClientOptionsBuilder()
+            .WithClientId(string.IsNullOrWhiteSpace(cfg.ClientId)
+                ? "smartenergy-worker-" + Guid.NewGuid().ToString("N")[..6]
+                : cfg.ClientId)
+            .WithCleanSession()
+            .WithKeepAlivePeriod(TimeSpan.FromSeconds(30))
+            .WithWillTopic("home/edge/worker/status")
+            .WithWillPayload("offline")
+            .WithWillQualityOfServiceLevel(MqttQualityOfServiceLevel.AtLeastOnce)
+            .WithWillRetain(true);
+
+        if (!string.IsNullOrWhiteSpace(cfg.User))
+            b = b.WithCredentials(cfg.User, cfg.Pass ?? string.Empty);
+
+        // WebSocket i Azure (wss) – brukes når WsUrl er satt (enten i appsettings eller ENV)
+        var wsUrl = string.IsNullOrWhiteSpace(cfg.WsUrl)
+            ? Environment.GetEnvironmentVariable("MQTT_WS_URL")
+            : cfg.WsUrl;
+
+        if (!string.IsNullOrWhiteSpace(wsUrl))
+        {
+            // ACA-URL, f.eks. wss://smartenergy-mqtt.…azurecontainerapps.io/
+            b = b.WithWebSocketServer(wsUrl).WithTls();
+        }
+        else
+        {
+            // Lokalt (docker-compose): klassisk TCP
+            b = b.WithTcpServer(cfg.Host, cfg.Port);
+            if (cfg.Port == 8883) b = b.WithTls();
+        }
+
+        return b.Build();
     }
 }
