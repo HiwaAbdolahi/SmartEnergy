@@ -5,25 +5,21 @@ on:
     branches: [ master ]
   workflow_dispatch:
 
-# Nødvendig for OIDC + å lese repo
+# NØDVENDIG for OIDC
 permissions:
   id-token: write
   contents: read
 
 env:
-  # ACR/ressurser (samme verdier som du allerede har lagret som repo-secrets)
+  # Secrets må være satt i repoet ditt (du har dem fra før)
   ACR_NAME: ${{ secrets.AZURE_ACR_NAME }}                 # smartenergyhiwa
   ACR_SERVER: ${{ secrets.AZURE_ACR_LOGIN_SERVER }}       # smartenergyhiwa.azurecr.io
-  RG: ${{ secrets.AZURE_RESOURCE_GROUP }}                 # rg-smartenergy-dev
+  RESOURCE_GROUP: ${{ secrets.AZURE_RESOURCE_GROUP }}     # rg-smartenergy-dev
 
-  # Azure Container Apps (app-navn + container-navn inne i hver app)
+  # App-navn i ACA
   DASH_APP: smartenergy-dev
   WORKER_APP: smartenergy-worker
   MQTT_APP: smartenergy-mqtt
-
-  DASH_CONTAINER: smartenergy-dev
-  WORKER_CONTAINER: smartenergy-worker
-  MQTT_CONTAINER: smartenergy-mqtt
 
 jobs:
   build-push:
@@ -71,13 +67,12 @@ jobs:
             ${{ env.ACR_SERVER }}/${{ matrix.image }}:${{ github.sha }}
             ${{ env.ACR_SERVER }}/${{ matrix.image }}:latest
 
-  deploy-smartenergy:
+  deploy:
     runs-on: ubuntu-latest
     needs: build-push
     concurrency:
       group: smartenergy-deploy
       cancel-in-progress: true
-
     steps:
       - name: Azure login (OIDC)
         uses: azure/login@v2
@@ -86,27 +81,29 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-      # Oppdater hver app til bilde med samme commit-SHA
-      - name: Deploy dashboard
+      - name: Deploy dashboard image
         run: |
-          az containerapp update -g "$RG" -n "$DASH_APP" \
-            --image "$ACR_SERVER/smartenergy-dashboard:${GITHUB_SHA}" \
-            --container-name "$DASH_CONTAINER"
+          az containerapp update -g "${RESOURCE_GROUP}" -n "${{ env.DASH_APP }}" \
+            --container-name smartenergy-dev \
+            --image "${{ env.ACR_SERVER }}/smartenergy-dashboard:${GITHUB_SHA}"
 
-      - name: Deploy worker
+      - name: Deploy worker image
         run: |
-          az containerapp update -g "$RG" -n "$WORKER_APP" \
-            --image "$ACR_SERVER/smartenergy-worker:${GITHUB_SHA}" \
-            --container-name "$WORKER_CONTAINER"
+          az containerapp update -g "${RESOURCE_GROUP}" -n "${{ env.WORKER_APP }}" \
+            --container-name smartenergy-worker \
+            --image "${{ env.ACR_SERVER }}/smartenergy-worker:${GITHUB_SHA}"
 
-      - name: Deploy mosquitto
+      - name: Deploy mqtt image
         run: |
-          az containerapp update -g "$RG" -n "$MQTT_APP" \
-            --image "$ACR_SERVER/mosquitto:${GITHUB_SHA}" \
-            --container-name "$MQTT_CONTAINER"
+          az containerapp update -g "${RESOURCE_GROUP}" -n "${{ env.MQTT_APP }}" \
+            --container-name smartenergy-mqtt \
+            --image "${{ env.ACR_SERVER }}/mosquitto:${GITHUB_SHA}"
 
-      - name: Show revisions (alle tre)
+      - name: Show revisions
         run: |
-          az containerapp revision list -g "$RG" -n "$DASH_APP"  -o table
-          az containerapp revision list -g "$RG" -n "$WORKER_APP" -o table
-          az containerapp revision list -g "$RG" -n "$MQTT_APP"  -o table
+          echo "Dashboard:"
+          az containerapp revision list -g "${RESOURCE_GROUP}" -n "${{ env.DASH_APP }}" -o table
+          echo "Worker:"
+          az containerapp revision list -g "${RESOURCE_GROUP}" -n "${{ env.WORKER_APP }}" -o table
+          echo "MQTT:"
+          az containerapp revision list -g "${RESOURCE_GROUP}" -n "${{ env.MQTT_APP }}" -o table
