@@ -1,0 +1,55 @@
+name: build-and-deploy
+
+on:
+  push:
+    branches: [ master ]
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  ACR_NAME: ${{ secrets.AZURE_ACR_NAME }}                 # smartenergyhiwa
+  ACR_LOGIN_SERVER: ${{ secrets.AZURE_ACR_LOGIN_SERVER }} # smartenergyhiwa.azurecr.io
+  RG: ${{ secrets.AZURE_RESOURCE_GROUP }}                 # rg-smartenergy-dev
+  APP: ${{ secrets.AZURE_CONTAINERAPP_NAME }}             # smartenergy-dev
+  IMAGE_NAME: smartenergy                                 # kall bildet mit noe fast
+  IMAGE_TAG: ${{ github.sha }}
+
+jobs:
+  build-push-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Logg inn i ACR
+        run: az acr login -n "$ACR_NAME"
+
+      # JUSTER hvis Dockerfile ligger et annet sted:
+      # Legg til:  --file path/til/Dockerfile  --build-context .
+      - name: Bygg docker image
+        run: |
+          docker build -t $ACR_LOGIN_SERVER/$IMAGE_NAME:$IMAGE_TAG .
+
+      - name: Push til ACR
+        run: |
+          docker push $ACR_LOGIN_SERVER/$IMAGE_NAME:$IMAGE_TAG
+
+      - name: Deploy til Azure Container Apps
+        run: |
+          az containerapp update \
+            -n "$APP" -g "$RG" \
+            --image "$ACR_LOGIN_SERVER/$IMAGE_NAME:$IMAGE_TAG" \
+            --container-name "$APP"
+
+      - name: Vis revisjoner
+        run: az containerapp revision list -n "$APP" -g "$RG" -o table
