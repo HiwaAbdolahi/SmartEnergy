@@ -2,21 +2,16 @@ name: build-push-deploy
 
 on:
   push:
-    branches: [ master ]
-  workflow_dispatch:
-
-permissions:
-  id-token: write
-  contents: read
+    branches: [ "master" ]
 
 env:
-  ACR_NAME: ${{ secrets.AZURE_ACR_NAME }}                 # smartenergyhiwa
-  ACR_SERVER: ${{ secrets.AZURE_ACR_LOGIN_SERVER }}       # smartenergyhiwa.azurecr.io
-  RESOURCE_GROUP: ${{ secrets.AZURE_RESOURCE_GROUP }}     # rg-smartenergy-dev
-  CONTAINERAPP_NAME: ${{ secrets.AZURE_CONTAINERAPP_NAME }} # smartenergy-dev
-  CONTAINER_NAME: smartenergy-dev
-  # Hvilket image som skal deployes til dashboard-appen:
-  DEPLOY_IMAGE_NAME: smartenergy-dashboard
+  RG: rg-smartenergy-dev
+  ACR_NAME: smartenergyhiwa
+  ACR_LOGIN_SERVER: smartenergyhiwa.azurecr.io
+  APP_DASH: smartenergy-dev
+  APP_WORKER: smartenergy-worker
+  APP_MQTT: smartenergy-mqtt
+  MQTT_WSS: wss://smartenergy-mqtt.calmmushroom-56122533.norwayeast.azurecontainerapps.io/
 
 jobs:
   build-push:
@@ -24,72 +19,72 @@ jobs:
     strategy:
       matrix:
         include:
-          - svc: mosquitto
-            context: ./mosquittoC
-            dockerfile: Dockerfile
-            image: mosquitto
-          - svc: dashboard
+          - name: smartenergy-dashboard
             context: ./dashboardC
-            dockerfile: Dockerfile
-            image: smartenergy-dashboard
-          - svc: worker
+            dockerfile: ./dashboardC/Dockerfile
+          - name: smartenergy-worker
             context: ./workerC
-            dockerfile: Dockerfile
-            image: smartenergy-worker
+            dockerfile: ./workerC/Dockerfile
+          - name: mosquitto
+            context: ./mosquittoC
+            dockerfile: ./mosquittoC/Dockerfile
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Azure login (OIDC)
+      - name: Azure login (SP)
         uses: azure/login@v2
         with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Login to ACR (uses Azure session)
-        run: az acr login -n "$ACR_NAME"
+      - name: Docker login to ACR (with SP)
+        uses: azure/docker-login@v1
+        with:
+          login-server: ${{ env.ACR_LOGIN_SERVER }}
+          username: ${{ fromJson(secrets.AZURE_CREDENTIALS).clientId }}
+          password: ${{ fromJson(secrets.AZURE_CREDENTIALS).clientSecret }}
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Build & Push ${{ matrix.svc }}
+      - name: Build & push ${{ matrix.name }}
         uses: docker/build-push-action@v6
         with:
           context: ${{ matrix.context }}
-          file: ${{ matrix.context }}/${{ matrix.dockerfile }}
+          file: ${{ matrix.dockerfile }}
           push: true
-          no-cache: true                # <- Tving nytt build, tar med index.html
-          tags: |
-            ${{ env.ACR_SERVER }}/${{ matrix.image }}:${{ github.sha }}
-            ${{ env.ACR_SERVER }}/${{ matrix.image }}:latest
+          tags: ${{ env.ACR_LOGIN_SERVER }}/${{ matrix.name }}:${{ github.sha }}
 
   deploy:
-    runs-on: ubuntu-latest
     needs: build-push
-    concurrency:
-      group: smartenergy-deploy
-      cancel-in-progress: true
+    runs-on: ubuntu-latest
     steps:
-      - name: Azure login (OIDC)
+      - name: Azure login (SP)
         uses: azure/login@v2
         with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Deploy chosen image to Container App
-        run: |
-          IMAGE_REF="${ACR_SERVER}/${DEPLOY_IMAGE_NAME}:${GITHUB_SHA}"
-          echo "Deploying $IMAGE_REF to ${CONTAINERAPP_NAME}/${CONTAINER_NAME}"
-          az containerapp update \
-            -n "${CONTAINERAPP_NAME}" \
-            -g "${RESOURCE_GROUP}" \
-            --image "$IMAGE_REF" \
-            --container-name "${CONTAINER_NAME}"
+      - name: Update Container Apps
+        uses: azure/cli@v2
+        with:
+          inlineScript: |
+            set -e
+            SHA=${{ github.sha }}
+            ACR=${{ env.ACR_LOGIN_SERVER }}
+            RG=${{ env.RG }}
 
-      - name: Ensure min replicas = 1 (so a replica exists)
-        run: |
-          az containerapp update -g "${RESOURCE_GROUP}" -n "${CONTAINERAPP_NAME}" --min-replicas 1
-          az containerapp revision list -g "${RESOURCE_GROUP}" -n "${CONTAINERAPP_NAME}" -o table
+            az containerapp update -g "$RG" -n "${{ env.APP_DASH }}" \
+              --image "$ACR/smartenergy-dashboard:$SHA" \
+              --min-replicas 1 \
+              --set-env-vars DASH_BUILD_SHA="$SHA"
+
+            az containerapp update -g "$RG" -n "${{ env.APP_WORKER }}" \
+              --image "$ACR/smartenergy-worker:$SHA" \
+              --min-replicas 1 \
+              --set-env-vars MQTT_WS_URL="${{ env.MQTT_WSS }}" WORKER_BUILD_SHA="$SHA"
+
+            az containerapp update -g "$RG" -n "${{ env.APP_MQTT }}" \
+              --image "$ACR/mosquitto:$SHA" \
+              --min-replicas 1
+
+            for APP in "${{ env.APP_DASH }}" "${{ env.APP_WORKER }}" "${{ env.APP_MQTT }}"; do
+              echo "$APP image =>"
+              az containerapp show -g "$RG" -n "$APP" --query "properties.template.containers[0].image" -o tsv
+            done
