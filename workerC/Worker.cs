@@ -1,4 +1,4 @@
-namespace SmartEnergy.workerC;
+ï»¿namespace SmartEnergy.workerC;
 
 using Microsoft.Extensions.Options;
 using MQTTnet;
@@ -18,7 +18,6 @@ public class Worker(ILogger<Worker> log, IOptions<MqttSettings> mqtt, IOptions<L
         var factory = new MqttFactory();
         var client = factory.CreateMqttClient();
 
-        // Reager på innkommende meldinger (samme logikk som før)
         client.ApplicationMessageReceivedAsync += async e =>
         {
             var topic = e.ApplicationMessage.Topic;
@@ -46,10 +45,9 @@ public class Worker(ILogger<Worker> log, IOptions<MqttSettings> mqtt, IOptions<L
             return Task.CompletedTask;
         };
 
-        // Bygg MQTT options: WebSocket (wss) hvis WsUrl er satt, ellers TCP (lokalt)
+        // WebSocket i Azure (wss) hvis WsUrl er satt, ellers lokal TCP
         var options = BuildClientOptions(_cfg);
 
-        // Hovedløkke: reconnect + heartbeat
         while (!ct.IsCancellationRequested)
         {
             if (!client.IsConnected)
@@ -63,7 +61,6 @@ public class Worker(ILogger<Worker> log, IOptions<MqttSettings> mqtt, IOptions<L
                     await client.SubscribeAsync("home/stue/temp", MqttQualityOfServiceLevel.AtLeastOnce, ct);
                     _log.LogInformation("Subscribed to home/stue/temp");
 
-                    // Marker online (retained)
                     await client.PublishStringAsync(
                         "home/edge/worker/status",
                         "online",
@@ -82,21 +79,25 @@ public class Worker(ILogger<Worker> log, IOptions<MqttSettings> mqtt, IOptions<L
 
             try
             {
-                // Heartbeat (ISO-UTC)
-                var beat = DateTimeOffset.UtcNow.ToString("O");
+                // Send epoch-ms som tekst + retain, som dashboardet kan parse stabilt
+                var epochMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds().ToString(CultureInfo.InvariantCulture);
+
                 await client.PublishStringAsync(
                     "home/demo/heartbeat",
-                    beat,
+                    epochMs,
                     MqttQualityOfServiceLevel.AtLeastOnce,
-                    retain: false,
+                    retain: true,
                     ct
                 );
-                _log.LogInformation("TX home/demo/heartbeat => {Beat}", beat);
+
+                _log.LogInformation("TX home/demo/heartbeat => {EpochMs}", epochMs);
             }
             catch (Exception ex)
             {
                 _log.LogWarning(ex, "Publish heartbeat failed (will try reconnect next loop).");
             }
+
+
 
             await Task.Delay(TimeSpan.FromSeconds(_loop.IntervalSeconds), ct);
         }
@@ -118,19 +119,18 @@ public class Worker(ILogger<Worker> log, IOptions<MqttSettings> mqtt, IOptions<L
         if (!string.IsNullOrWhiteSpace(cfg.User))
             b = b.WithCredentials(cfg.User, cfg.Pass ?? string.Empty);
 
-        // WebSocket i Azure (wss) – brukes når WsUrl er satt (enten i appsettings eller ENV)
         var wsUrl = string.IsNullOrWhiteSpace(cfg.WsUrl)
             ? Environment.GetEnvironmentVariable("MQTT_WS_URL")
             : cfg.WsUrl;
 
         if (!string.IsNullOrWhiteSpace(wsUrl))
         {
-            // ACA-URL, f.eks. wss://smartenergy-mqtt.…azurecontainerapps.io/
+            // WSS (Azure)
             b = b.WithWebSocketServer(wsUrl).WithTls();
         }
         else
         {
-            // Lokalt (docker-compose): klassisk TCP
+            // Lokal TCP
             b = b.WithTcpServer(cfg.Host, cfg.Port);
             if (cfg.Port == 8883) b = b.WithTls();
         }

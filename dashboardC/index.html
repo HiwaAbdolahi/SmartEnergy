@@ -946,7 +946,8 @@
         const topics = {
             temp: 'home/stue/temp',
             heater: 'home/stue/heater/cmd',
-            heartbeat: 'home/demo/heartbeat'
+            heartbeat: 'home/demo/heartbeat',
+            selfPing: 'home/demo/ping/' + options.clientId
         };
     
         
@@ -1025,6 +1026,19 @@
                 }
             }
         });
+
+
+
+        let pingTimer = null;
+        function startPing() {
+            if (pingTimer) clearInterval(pingTimer);
+            pingTimer = setInterval(() => {
+                if (client && client.connected) {
+                    client.publish(topics.selfPing, String(Date.now()), { qos: 0, retain: false });
+                }
+            }, 4000);
+        }
+
         
         // MQTT Connection
         function connectMQTT() {
@@ -1038,6 +1052,8 @@
                     if (!err) showToast('Tilkoblet', 'Koblet til MQTT broker', 'success');
                     else console.error('Subscribe error:', err);
                 });
+                startPing(); // start egen RTT-måling
+
             });
 
             client.on('reconnect', () => {
@@ -1066,6 +1082,15 @@
                 messageCount++;
                 document.getElementById('messages').textContent = messageCount;
 
+                if (topic === topics.selfPing) {
+                    const sent = Number(message.toString());
+                    if (Number.isFinite(sent)) {
+                        const rtt = Math.max(0, Date.now() - sent);
+                        document.getElementById('latency').textContent = `${rtt} ms`;
+                    }
+                    return;
+                }
+
                 if (topic === topics.temp) {
                     const temp = parseFloat(message.toString());
                     if (!isNaN(temp)) updateTemperature(temp);
@@ -1078,15 +1103,19 @@
                 }
 
                 if (topic === topics.heartbeat) {
-                    // ← RIKTIG latency: bruk ISO-tidsstempelet fra worker
-                    const sent = Date.parse(message.toString());
-                    const ms = isNaN(sent) ? null : Math.max(0, Date.now() - sent);
-                    document.getElementById('lastHeartbeat').textContent =
-                        new Date().toLocaleTimeString('no-NO', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-                    if (ms !== null) document.getElementById('latency').textContent = `${ms} ms`;
+                    const raw = message.toString();
+                    const sent = /^\d+$/.test(raw) ? Number(raw) : Date.parse(raw);
+                    if (Number.isFinite(sent)) {
+                        document.getElementById('lastHeartbeat').textContent =
+                            new Date().toLocaleTimeString('no-NO', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                        // Ikke sett latency her – det måles av selfPing
+                    } else {
+                        console.warn('Kunne ikke parse heartbeat:', raw);
+                    }
                     return;
                 }
             });
+
         }
 
 
