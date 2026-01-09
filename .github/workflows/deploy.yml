@@ -30,20 +30,21 @@ jobs:
             dockerfile: ./mosquittoC/Dockerfile
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Azure login
+      - name: Azure login (SP)
         uses: azure/login@v2
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: ACR login (via Azure CLI)
-        uses: azure/cli@v2
+      - name: Docker login to ACR (with SP)
+        uses: azure/docker-login@v1
         with:
-          inlineScript: az acr login --name ${{ env.ACR_NAME }}
+          login-server: ${{ env.ACR_LOGIN_SERVER }}
+          username: ${{ fromJson(secrets.AZURE_CREDENTIALS).clientId }}
+          password: ${{ fromJson(secrets.AZURE_CREDENTIALS).clientSecret }}
 
-      - name: Build & Push ${{ matrix.name }}
+      - name: Build & push ${{ matrix.name }}
         uses: docker/build-push-action@v6
         with:
           context: ${{ matrix.context }}
@@ -55,42 +56,35 @@ jobs:
     needs: build-push
     runs-on: ubuntu-latest
     steps:
-      - name: Azure login
+      - name: Azure login (SP)
         uses: azure/login@v2
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Update Container Apps to new images + env vars
+      - name: Update Container Apps
         uses: azure/cli@v2
         with:
           inlineScript: |
+            set -e
             SHA=${{ github.sha }}
             ACR=${{ env.ACR_LOGIN_SERVER }}
             RG=${{ env.RG }}
 
-            # Dashboard
             az containerapp update -g "$RG" -n "${{ env.APP_DASH }}" \
               --image "$ACR/smartenergy-dashboard:$SHA" \
               --min-replicas 1 \
               --set-env-vars DASH_BUILD_SHA="$SHA"
 
-            # Worker (sett begge env keys for sikkerhets skyld)
             az containerapp update -g "$RG" -n "${{ env.APP_WORKER }}" \
               --image "$ACR/smartenergy-worker:$SHA" \
               --min-replicas 1 \
-              --set-env-vars MQTT_WS_URL="${{ env.MQTT_WSS }}" Mqtt__WsUrl="${{ env.MQTT_WSS }}" WORKER_BUILD_SHA="$SHA"
+              --set-env-vars MQTT_WS_URL="${{ env.MQTT_WSS }}" WORKER_BUILD_SHA="$SHA"
 
-            # Mosquitto
             az containerapp update -g "$RG" -n "${{ env.APP_MQTT }}" \
               --image "$ACR/mosquitto:$SHA" \
               --min-replicas 1
 
-      - name: Show images on apps (sanity check)
-        uses: azure/cli@v2
-        with:
-          inlineScript: |
             for APP in "${{ env.APP_DASH }}" "${{ env.APP_WORKER }}" "${{ env.APP_MQTT }}"; do
-              echo "$APP =>"
-              az containerapp show -g ${{ env.RG }} -n $APP \
-                --query "properties.template.containers[0].image" -o tsv
+              echo "$APP image =>"
+              az containerapp show -g "$RG" -n "$APP" --query "properties.template.containers[0].image" -o tsv
             done
