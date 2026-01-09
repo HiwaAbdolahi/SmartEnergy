@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "SmartEnergy": {
+      "commandName": "Project"
+    },
+    "Container (Dockerfile)": {
+      "commandName": "Docker"
+    }
+  }
+}
