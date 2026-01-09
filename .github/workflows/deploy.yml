@@ -5,19 +5,25 @@ on:
     branches: [ master ]
   workflow_dispatch:
 
-# NØDVENDIG for OIDC (fikser feilen du fikk)
+# Nødvendig for OIDC + å lese repo
 permissions:
   id-token: write
   contents: read
 
 env:
-  ACR_NAME: ${{ secrets.AZURE_ACR_NAME }}                       # smartenergyhiwa
-  ACR_SERVER: ${{ secrets.AZURE_ACR_LOGIN_SERVER }}             # smartenergyhiwa.azurecr.io
-  RESOURCE_GROUP: ${{ secrets.AZURE_RESOURCE_GROUP }}           # rg-smartenergy-dev
-  CONTAINERAPP_NAME: ${{ secrets.AZURE_CONTAINERAPP_NAME }}     # smartenergy-dev
-  CONTAINER_NAME: smartenergy-dev                               # navnet på containeren inne i appen
-  # Hvilket image skal deployes? (smartenergy-dashboard | smartenergy-worker | mosquitto)
-  DEPLOY_IMAGE_NAME: smartenergy-dashboard
+  # ACR/ressurser (samme verdier som du allerede har lagret som repo-secrets)
+  ACR_NAME: ${{ secrets.AZURE_ACR_NAME }}                 # smartenergyhiwa
+  ACR_SERVER: ${{ secrets.AZURE_ACR_LOGIN_SERVER }}       # smartenergyhiwa.azurecr.io
+  RG: ${{ secrets.AZURE_RESOURCE_GROUP }}                 # rg-smartenergy-dev
+
+  # Azure Container Apps (app-navn + container-navn inne i hver app)
+  DASH_APP: smartenergy-dev
+  WORKER_APP: smartenergy-worker
+  MQTT_APP: smartenergy-mqtt
+
+  DASH_CONTAINER: smartenergy-dev
+  WORKER_CONTAINER: smartenergy-worker
+  MQTT_CONTAINER: smartenergy-mqtt
 
 jobs:
   build-push:
@@ -40,11 +46,9 @@ jobs:
 
     steps:
       - name: Checkout
-      # Henter hele repoet
         uses: actions/checkout@v4
 
       - name: Azure login (OIDC)
-      # Logger inn i Azure ved hjelp av app-registreringen (federated cred)
         uses: azure/login@v2
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
@@ -52,14 +56,12 @@ jobs:
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
       - name: Login to ACR (uses Azure session)
-      # Bruker tokenet fra azure/login – ingen passord trengs
         run: az acr login -n "$ACR_NAME"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
       - name: Build & Push ${{ matrix.svc }}
-      # Bygger fra riktig mappe og dockerfile, tagger både med SHA og latest
         uses: docker/build-push-action@v6
         with:
           context: ${{ matrix.context }}
@@ -84,16 +86,27 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-      - name: Deploy chosen image to Container App
-      # Oppdaterer bildet i eksisterende container inne i appen
+      # Oppdater hver app til bilde med samme commit-SHA
+      - name: Deploy dashboard
         run: |
-          IMAGE_REF="${ACR_SERVER}/${DEPLOY_IMAGE_NAME}:${GITHUB_SHA}"
-          echo "Deploying image: $IMAGE_REF to app: ${CONTAINERAPP_NAME} (container: ${CONTAINER_NAME})"
-          az containerapp update \
-            -n "${CONTAINERAPP_NAME}" \
-            -g "${RESOURCE_GROUP}" \
-            --image "$IMAGE_REF" \
-            --container-name "${CONTAINER_NAME}"
+          az containerapp update -g "$RG" -n "$DASH_APP" \
+            --image "$ACR_SERVER/smartenergy-dashboard:${GITHUB_SHA}" \
+            --container-name "$DASH_CONTAINER"
 
-      - name: Show active revision
-        run: az containerapp revision list -n "${CONTAINERAPP_NAME}" -g "${RESOURCE_GROUP}" -o table
+      - name: Deploy worker
+        run: |
+          az containerapp update -g "$RG" -n "$WORKER_APP" \
+            --image "$ACR_SERVER/smartenergy-worker:${GITHUB_SHA}" \
+            --container-name "$WORKER_CONTAINER"
+
+      - name: Deploy mosquitto
+        run: |
+          az containerapp update -g "$RG" -n "$MQTT_APP" \
+            --image "$ACR_SERVER/mosquitto:${GITHUB_SHA}" \
+            --container-name "$MQTT_CONTAINER"
+
+      - name: Show revisions (alle tre)
+        run: |
+          az containerapp revision list -g "$RG" -n "$DASH_APP"  -o table
+          az containerapp revision list -g "$RG" -n "$WORKER_APP" -o table
+          az containerapp revision list -g "$RG" -n "$MQTT_APP"  -o table
