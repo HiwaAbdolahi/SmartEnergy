@@ -1,17 +1,10 @@
 ﻿FROM nginx:alpine
 
-# Verktøy for healthcheck
-RUN apk add --no-cache curl
-
-# Statisk frontend
-COPY index.html /usr/share/nginx/html/index.html
-
-# Nginx som proxy for /mqtt -> mosquitto:9001
+# Nginx-konfig
 COPY default.conf /etc/nginx/conf.d/default.conf
 
+# Kopier ALT web-innhold til dokumentroten
+# (pga .dockerignore blir ikke Dockerfile/default.conf med)
+COPY . /usr/share/nginx/html/
+
 EXPOSE 80
-
-# Healthcheck: OK hvis nginx svarer 200
-HEALTHCHECK --interval=30s --timeout=3s --retries=3 \
-  CMD ["curl","-fsS","http://localhost/"]
-
