@@ -1,4 +1,7 @@
-Dockerfile
-default.conf
-.dockerignore
-*.md
+.git/
+.vs/
+.vscode/
+node_modules/
+*.map
+*.psd
+*.ai
