@@ -5,74 +5,95 @@ on:
     branches: [ master ]
   workflow_dispatch:
 
-env:
-  # Fra GitHub Secrets (du har satt disse)
-  ACR_LOGIN_SERVER: ${{ secrets.AZURE_ACR_LOGIN_SERVER }}   # ex: smartenergyhiwa.azurecr.io
-  ACR_NAME:         ${{ secrets.AZURE_ACR_NAME }}           # smartenergyhiwa
-  RG:               ${{ secrets.AZURE_RESOURCE_GROUP }}     # rg-smartenergy-dev
-  APP:              ${{ secrets.AZURE_CONTAINERAPP_NAME }}  # smartenergy-dev
+# NØDVENDIG for OIDC (fikser feilen du fikk)
+permissions:
+  id-token: write
+  contents: read
 
-  IMAGE_TAG: ${{ github.sha }}
+env:
+  ACR_NAME: ${{ secrets.AZURE_ACR_NAME }}                       # smartenergyhiwa
+  ACR_SERVER: ${{ secrets.AZURE_ACR_LOGIN_SERVER }}             # smartenergyhiwa.azurecr.io
+  RESOURCE_GROUP: ${{ secrets.AZURE_RESOURCE_GROUP }}           # rg-smartenergy-dev
+  CONTAINERAPP_NAME: ${{ secrets.AZURE_CONTAINERAPP_NAME }}     # smartenergy-dev
+  CONTAINER_NAME: smartenergy-dev                               # navnet på containeren inne i appen
+  # Hvilket image skal deployes? (smartenergy-dashboard | smartenergy-worker | mosquitto)
+  DEPLOY_IMAGE_NAME: smartenergy-dashboard
 
 jobs:
   build-push:
     runs-on: ubuntu-latest
-
     strategy:
       matrix:
         include:
-          # <- mappene dine fra docker-compose.yml
-          - image: smartenergy
-            ctx: ./workerC
-            df:  ./workerC/Dockerfile
-          - image: dashboard
-            ctx: ./dashboardC
-            df:  ./dashboardC/Dockerfile
-          - image: mosquitto
-            ctx: ./mosquittoC
-            df:  ./mosquittoC/Dockerfile
+          - svc: mosquitto
+            context: ./mosquittoC
+            dockerfile: Dockerfile
+            image: mosquitto
+          - svc: dashboard
+            context: ./dashboardC
+            dockerfile: Dockerfile
+            image: smartenergy-dashboard
+          - svc: worker
+            context: ./workerC
+            dockerfile: Dockerfile
+            image: smartenergy-worker
 
     steps:
       - name: Checkout
+      # Henter hele repoet
         uses: actions/checkout@v4
 
       - name: Azure login (OIDC)
+      # Logger inn i Azure ved hjelp av app-registreringen (federated cred)
         uses: azure/login@v2
         with:
-          tenant-id:       ${{ secrets.AZURE_TENANT_ID }}
-          client-id:       ${{ secrets.AZURE_CLIENT_ID }}
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-      - name: Logg inn i ACR
+      - name: Login to ACR (uses Azure session)
+      # Bruker tokenet fra azure/login – ingen passord trengs
         run: az acr login -n "$ACR_NAME"
 
-      - name: Bygg ${{ matrix.image }}
-        run: |
-          docker build \
-            -f "${{ matrix.df }}" \
-            -t "$ACR_LOGIN_SERVER/${{ matrix.image }}:$IMAGE_TAG" \
-            "${{ matrix.ctx }}"
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
-      - name: Push ${{ matrix.image }}
-        run: docker push "$ACR_LOGIN_SERVER/${{ matrix.image }}:$IMAGE_TAG"
+      - name: Build & Push ${{ matrix.svc }}
+      # Bygger fra riktig mappe og dockerfile, tagger både med SHA og latest
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.context }}/${{ matrix.dockerfile }}
+          push: true
+          tags: |
+            ${{ env.ACR_SERVER }}/${{ matrix.image }}:${{ github.sha }}
+            ${{ env.ACR_SERVER }}/${{ matrix.image }}:latest
 
   deploy-smartenergy:
-    needs: build-push
     runs-on: ubuntu-latest
+    needs: build-push
+    concurrency:
+      group: smartenergy-deploy
+      cancel-in-progress: true
+
     steps:
       - name: Azure login (OIDC)
         uses: azure/login@v2
         with:
-          tenant-id:       ${{ secrets.AZURE_TENANT_ID }}
-          client-id:       ${{ secrets.AZURE_CLIENT_ID }}
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-      - name: Oppdater Container App (bruk smartenergy-bildet)
+      - name: Deploy chosen image to Container App
+      # Oppdaterer bildet i eksisterende container inne i appen
         run: |
+          IMAGE_REF="${ACR_SERVER}/${DEPLOY_IMAGE_NAME}:${GITHUB_SHA}"
+          echo "Deploying image: $IMAGE_REF to app: ${CONTAINERAPP_NAME} (container: ${CONTAINER_NAME})"
           az containerapp update \
-            -n "$APP" -g "$RG" \
-            --image "$ACR_LOGIN_SERVER/smartenergy:$IMAGE_TAG" \
-            --container-name "$APP"
+            -n "${CONTAINERAPP_NAME}" \
+            -g "${RESOURCE_GROUP}" \
+            --image "$IMAGE_REF" \
+            --container-name "${CONTAINER_NAME}"
 
-      - name: Vis revisjon
-        run: az containerapp revision list -n "$APP" -g "$RG" -o table
+      - name: Show active revision
+        run: az containerapp revision list -n "${CONTAINERAPP_NAME}" -g "${RESOURCE_GROUP}" -o table
